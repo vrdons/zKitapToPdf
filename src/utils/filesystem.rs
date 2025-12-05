@@ -7,6 +7,7 @@ use serde::Serialize;
 pub fn setup() {
     let _ = fs::create_dir_all(paths::INPUT_PATH);
     let _ = fs::create_dir_all(paths::OUTPUT_PATH);
+    let _ = fs::create_dir_all(paths::WINE_PATH);
     let _ = clear_temp();
 }
 

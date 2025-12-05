@@ -25,6 +25,7 @@ target
 in
 out
 tmp
+wine
 
 # Added by cargo
 
