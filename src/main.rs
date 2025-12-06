@@ -1,51 +1,44 @@
-use core::panic;
-use std::{fs, path::Path};
+use std::{fs, path::Path, thread, time::Duration};
 
 pub mod paths;
 pub mod utils;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     utils::filesystem::setup();
-    let files = utils::filesystem::check_input().unwrap_or_else(|e| {
-        panic!("check_input hata verdi: {}", e);
-    });
+    let files = utils::filesystem::check_input()
+        .map_err(|e| anyhow::anyhow!("check_input hat verdi: {}", e))?;
     if files.is_empty() {
-        panic!("check_input: hiçbir dosya bulunamadı!");
+        return Err(anyhow::anyhow!("input klasörü boş"));
     }
     for item in files {
         #[cfg(target_os = "linux")]
-        utils::wine::setup_wine().unwrap();
+        utils::wine::setup_wine()?;
 
         utils::filesystem::setup();
         #[cfg(target_os = "linux")]
-        let temp_data = utils::wine::get_temp_path().unwrap();
+        let temp_data = utils::wine::get_temp_path()?;
 
         let temp_clone = temp_data.clone();
         let handle = std::thread::spawn(move || utils::filesystem::watch_folder(&temp_clone));
 
         #[cfg(target_os = "linux")]
-        let child = &mut utils::wine::run_file(&item).unwrap();
+        let child = &mut utils::wine::run_file(&item)?;
         //TODO: exec for windows
+        let zip_path = handle
+            .join()
+            .map_err(|e| anyhow::anyhow!("Thread panic oldu: {:?}", e))??;
 
-        match handle.join() {
-            Ok(result) => match result {
-                Ok(zip_path) => {
-                    println!("Thread’den gelen zip dosyası: {:?}", zip_path);
-                    fs::copy(zip_path, Path::new(paths::TEMP_PATH).join("temp.zip"))
-                        .unwrap_or_else(|e| {
-                            panic!("Thread'den gelen zip dosyasını kopyalayamadım: {}", e)
-                        });
-                    child
-                        .kill()
-                        .unwrap_or_else(|e| println!("zKitap kapatılamadı: {}", e));
-                }
-                Err(e) => eprintln!("watch_folder hatası: {:?}", e),
-            },
-            Err(e) => eprintln!("Thread panic oldu: {:?}", e),
-        }
+        println!("Thread’den gelen zip dosyası: {:?}", zip_path);
+        thread::sleep(Duration::from_millis(100));
+        utils::zip::extract_zip(zip_path, Path::new(paths::TEMP_PATH).join("temp")).await?;
+
+        child
+            .kill()
+            .map_err(|e| anyhow::anyhow!("zKitap kapatılamadı: {}", e))?;
 
         break;
         //panic!("{:?}", output);
     }
+    Ok(())
 }
