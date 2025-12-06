@@ -1,12 +1,12 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::{Child, Command},
+    process::{Child, Command, Stdio},
 };
 
 use anyhow::{Context, Ok};
 
-use crate::paths;
+use crate::{paths, utils::filesystem};
 
 pub fn setup_wine() -> anyhow::Result<()> {
     let _ = fs::create_dir_all(paths::WINE_PATH);
@@ -39,12 +39,39 @@ pub fn run_file(path: &str) -> anyhow::Result<Child> {
     println!("{}", wp);
     let child = Command::new("wine")
         .env("WINEPREFIX", wp)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null())
         .arg(path)
         .spawn()?;
     Ok(child)
 }
 
-pub fn get_temp_path() -> anyhow::Result<PathBuf> {
+pub fn get_app_roaming(appname: String) -> anyhow::Result<PathBuf> {
+    let username = env::var("USERNAME")
+        .or_else(|_| env::var("USER"))
+        .context("Kullanıcı adı alınamadı")?;
+
+    let real_app_name = Path::new(&appname)
+        .file_stem()
+        .ok_or_else(|| anyhow::anyhow!("Geçersiz uygulama adı"))?
+        .to_string_lossy()
+        .into_owned();
+
+    let roaming_base = Path::new(paths::WINE_PATH)
+        .join("drive_c")
+        .join("users")
+        .join(username)
+        .join("AppData")
+        .join("Roaming");
+
+    let closest = filesystem::find_closest_folder(&roaming_base, &real_app_name)
+        .ok_or_else(|| anyhow::anyhow!(real_app_name.clone()))?;
+
+    Ok(closest)
+}
+
+fn get_temp_path() -> anyhow::Result<PathBuf> {
     let username = env::var("USERNAME")
         .or_else(|_| env::var("USER"))
         .context("Kullanıcı adı alınamadı")?;
