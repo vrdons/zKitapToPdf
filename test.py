@@ -100,8 +100,8 @@ if __name__ == "__main__":
     _b = crypto.decrypte(_d, _f)
 
     # p.dll dosyasına yaz
-    #with open("/tmp/p.dll", "wb") as f:
-    #    f.write(_b)
+    with open("byte.dll", "wb") as f:
+        f.write(_b)
 
     print("/tmp/p.dll (CWS code) yazıldı. Artık içeriği doğru çözülebilir.")
     with open("byte.txt", "r") as f:
