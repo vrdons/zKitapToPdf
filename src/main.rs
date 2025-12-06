@@ -5,13 +5,13 @@ use std::{
     }, time::Duration
 };
 
-use crate::utils::{filesystem::check_files, sfw::extract_cws};
+use crate::utils::{filesystem::check_files, swf::handle_swf};
 
 pub mod paths;
 pub mod utils;
 
 fn main() -> anyhow::Result<()> {
-    utils::filesystem::setup();
+   // utils::filesystem::setup();
     let files = utils::filesystem::check_files(paths::INPUT_PATH)
         .map_err(|e| anyhow::anyhow!("check_input hat verdi: {}", e))?;
     if files.is_empty() {
@@ -19,6 +19,7 @@ fn main() -> anyhow::Result<()> {
     }
     for item in files {
         let temp = Path::new(paths::TEMP_PATH).join("dlls");
+        /* 
         #[cfg(target_os = "linux")]
         utils::wine::setup_wine()?;
 
@@ -43,14 +44,16 @@ fn main() -> anyhow::Result<()> {
         println!("Child finished");
         std::thread::sleep(Duration::from_millis(5000));
         stop.store(true, Ordering::Relaxed);
-        
+        */
+
         let dlls = check_files(&temp.to_string_lossy().to_string())?;
         if dlls.is_empty() {
             return Err(anyhow::anyhow!("temp klasörü boş"));
         }
         for dll in dlls {
             let mut read = File::open(dll)?;
-            extract_cws(&mut read)?;
+            handle_swf(&mut read)?;
+            break;
         }
         break;
         //panic!("{:?}", output);

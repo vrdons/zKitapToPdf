@@ -1,5 +1,6 @@
 pub mod filesystem;
-pub mod sfw;
+pub mod swf;
+pub mod renderer;
 
 #[cfg(target_os = "linux")]
 pub mod wine;
