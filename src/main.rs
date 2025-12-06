@@ -8,8 +8,6 @@ pub mod utils;
 #[tokio::main]
 async fn main() {
     #[cfg(target_os = "linux")]
-    utils::wine::check_wine().unwrap();
-    #[cfg(target_os = "linux")]
     utils::wine::setup_wine().unwrap();
 
     utils::filesystem::setup();

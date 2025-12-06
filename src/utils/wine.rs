@@ -4,15 +4,11 @@ use anyhow::Ok;
 
 use crate::paths;
 
-pub fn check_wine() -> anyhow::Result<()> {
+pub fn setup_wine() -> anyhow::Result<()> {
     Command::new("wine")
         .arg("--version")
         .output()
         .unwrap_or_else(|e| panic!("Wine bulunamadı: {}", e));
-    Ok(())
-}
-
-pub fn setup_wine() -> anyhow::Result<()> {
     let mut child = Command::new("winecfg")
         .spawn()?;
 
