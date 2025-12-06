@@ -1,14 +1,15 @@
-use std::{env, fs, path::Path, process::{Child, Command}};
+use std::{env, fs, path::{Path, PathBuf}, process::{Child, Command}};
 
-use anyhow::Ok;
+use anyhow::{Ok,Context};
 
 use crate::paths;
 
 pub fn setup_wine() -> anyhow::Result<()> {
+    let _ = fs::create_dir_all(paths::WINE_PATH);
     let wp = Path::new(paths::WINE_PATH).canonicalize()?.to_string_lossy().to_string();
     Command::new("wine")
         .arg("--version")
-        .output()
+        .spawn()
         .unwrap_or_else(|e| panic!("Wine bulunamadı: {}", e));
     clear_temp()?;
     let mut child = Command::new("wineboot")
@@ -34,17 +35,25 @@ pub fn run_file(path: &str) -> anyhow::Result<Child> {
         .spawn()?;
     Ok(child)
 }
+
+pub fn get_temp_path() -> anyhow::Result<PathBuf> {
+    let username = env::var("USERNAME")
+        .or_else(|_| env::var("USER"))
+        .context("Kullanıcı adı alınamadı")?;
+
+    let tmp_dir = Path::new(paths::WINE_PATH)
+        .join("drive_c")
+        .join("users")
+        .join(&username)
+        .join("AppData")
+        .join("Local")
+        .join("Temp");
+
+    Ok(tmp_dir)
+}
+
 fn clear_temp() -> anyhow::Result<()> {
-          let username = env::var("USERNAME")
-            .or_else(|_| env::var("USER"))
-            .unwrap_or_else(|_| "unknown".to_string());
-      let tmp_dir = Path::new(paths::WINE_PATH)
-            .join("drive_c")
-            .join("users")
-            .join(username)
-            .join("AppData")
-            .join("Local")
-            .join("Temp");
+    let tmp_dir = get_temp_path()?;
 
     if tmp_dir.exists() {
         fs::remove_dir_all(&tmp_dir)?;

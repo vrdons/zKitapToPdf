@@ -22,13 +22,7 @@ async fn main() {
             .or_else(|_| env::var("USER"))
             .unwrap_or_else(|_| "unknown".to_string());
         #[cfg(target_os = "linux")]
-        let TempData = Path::new(paths::WINE_PATH)
-            .join("drive_c")
-            .join("users")
-            .join(username)
-            .join("AppData")
-            .join("Local")
-            .join("Temp");
+        let TempData = utils::wine::get_temp_path().unwrap();
 
         #[cfg(target_os = "linux")]
         let child = &mut utils::wine::run_file(&item.path).unwrap();
