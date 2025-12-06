@@ -16,9 +16,9 @@ pub fn setup() {
     let _ = clear_temp();
 }
 
-pub fn check_input() -> anyhow::Result<Vec<String>> {
+pub fn check_files(path: &str) -> anyhow::Result<Vec<String>> {
     let mut items = Vec::new();
-    scan_dir(paths::INPUT_PATH, &mut items)?;
+    scan_dir(path, &mut items)?;
     Ok(items)
 }
 
