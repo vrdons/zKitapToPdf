@@ -23,6 +23,9 @@ pub fn handle_swf(file: &mut File) -> anyhow::Result<()> {
             Tag::SetBackgroundColor(color) => {
                 renderer.set_background(Rgb([color.r, color.g, color.b]));
             }
+            Tag::DefineFont2(font) => {
+                renderer.save_font(&font);
+            }
 
             Tag::ShowFrame => {
                 let path =
