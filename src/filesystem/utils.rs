@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::bail;
 
-pub fn scan_dir(dir: &Path, recursive: bool) -> anyhow::Result<Vec<String>> {
+pub fn scan_folder(dir: &Path, recursive: bool) -> anyhow::Result<Vec<String>> {
     let mut files = Vec::new();
     for entry in fs::read_dir(&dir)? {
         let entry = entry?;
@@ -15,7 +15,7 @@ pub fn scan_dir(dir: &Path, recursive: bool) -> anyhow::Result<Vec<String>> {
         files.push(path_str);
 
         if entry.metadata()?.is_dir() && recursive {
-            let recursive_scan = scan_dir(&path_buf, recursive)?;
+            let recursive_scan = scan_folder(&path_buf, recursive)?;
             files.extend(recursive_scan);
         }
     }
