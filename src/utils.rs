@@ -8,6 +8,7 @@ use std::{
         mpsc::channel,
     },
 };
+use walkdir::WalkDir;
 
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
@@ -20,6 +21,33 @@ pub fn clear_dir(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+pub fn find_dlls(temp_path: &Path) -> anyhow::Result<Vec<String>> {
+    let mut dlls = Vec::new();
+
+    for entry in WalkDir::new(temp_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        if entry.file_type().is_file() {
+            if entry
+                .path()
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("dll"))
+                .unwrap_or(false)
+            {
+                dlls.push(entry.path().to_string_lossy().to_string());
+            }
+        }
+    }
+
+    if dlls.is_empty() {
+        anyhow::bail!("temp klasörü boş veya dll yok");
+    }
+
+    Ok(dlls)
+}
 pub fn watch_and_copy(
     path: &PathBuf,
     out: &PathBuf,

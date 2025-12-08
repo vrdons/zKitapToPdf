@@ -8,3 +8,4 @@ anyhow = "1.0.100"
 clap = {version ="4.5.53", features = ["derive"] }
 image = { version = "0.25.9", features=["webp"] }
 notify = "8.2.0"
+walkdir = "2.5.0"

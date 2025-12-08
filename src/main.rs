@@ -1,4 +1,5 @@
 use std::{
+    fs::File,
     path::Path,
     sync::{
         Arc,
@@ -10,7 +11,7 @@ use std::{
 use crate::{
     cli::Args,
     executable::{execute_exe, get_roaming_path, setup_environment},
-    utils::clear_dir,
+    utils::{clear_dir, find_dlls},
 };
 
 use anyhow::Result;
@@ -45,5 +46,9 @@ fn main() -> Result<()> {
     std::thread::sleep(Duration::from_millis(5000));
     stop_watch.store(true, Ordering::Relaxed);
 
+    let dlls = find_dlls(&temp_dir)?;
+    for dll in dlls {
+        // let mut read = File::open(dll)?;
+    }
     Ok(())
 }
