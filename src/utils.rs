@@ -99,7 +99,9 @@ pub fn watch_and_copy(
                         .paths
                         .first()
                         .ok_or(anyhow::anyhow!("No path found"))?;
-                    if path.extension().and_then(OsStr::to_str) == Some(extension) {
+                    if path.extension().and_then(OsStr::to_str) == Some(extension)
+                        && path.file_stem().and_then(OsStr::to_str) != Some("p")
+                    {
                         let out_path = out.join(
                             path.file_name()
                                 .ok_or_else(|| anyhow::anyhow!("Failed to get file name"))?,
