@@ -83,13 +83,13 @@ pub fn watch_and_copy(
     let (tx, rx) = channel();
 
     let mut watcher: RecommendedWatcher = Watcher::new(tx, Config::default())?;
-
     watcher.watch(&path.canonicalize()?, RecursiveMode::Recursive)?;
 
     loop {
         if stop.load(Ordering::Relaxed) {
             break;
         }
+
         match rx.recv() {
             Ok(event) => {
                 let event = event?;
@@ -97,22 +97,43 @@ pub fn watch_and_copy(
                     let path = event
                         .paths
                         .first()
-                        .ok_or(anyhow::anyhow!("No path found"))?;
-                    if path.extension().and_then(OsStr::to_str) == Some(extension)
-                        && path.file_stem().and_then(OsStr::to_str) != Some("p")
-                    {
-                        let out_path = out.join(
-                            path.file_name()
-                                .ok_or_else(|| anyhow::anyhow!("Failed to get file name"))?,
-                        );
-                        println!("copy: {:?}", path);
-                        if let Err(e) = std::fs::copy(path.canonicalize()?, &out_path) {
-                            println!("Failed to copy {:?} -> {:?}: {:?}", path, out_path, e);
+                        .ok_or_else(|| anyhow::anyhow!("No path found"))?;
+
+                    if path.file_stem().and_then(OsStr::to_str) == Some("p") {
+                        continue;
+                    }
+
+                    if let Ok(bytes) = std::fs::read(path) {
+                        if bytes.len() >= 3 {
+                            let header = &bytes[..3];
+
+                            let is_swf = header == b"FWS" || header == b"CWS" || header == b"ZWS";
+
+                            if !is_swf {
+                                continue;
+                            }
+                        } else {
+                            continue;
                         }
+                    } else {
+                        continue;
+                    }
+
+                    let out_path = out.join(
+                        path.file_name()
+                            .ok_or_else(|| anyhow::anyhow!("Failed to get file name"))?,
+                    );
+
+                    println!("copy: {:?}", path);
+
+                    if let Err(e) = std::fs::copy(path.canonicalize()?, &out_path) {
+                        println!("Failed to copy {:?} -> {:?}: {:?}", path, out_path, e);
                     }
                 }
             }
-            Err(e) => println!("watch error: {:?}", e),
+            Err(e) => {
+                println!("watch error: {:?}", e);
+            }
         }
     }
     Ok(())
