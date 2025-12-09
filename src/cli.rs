@@ -21,28 +21,71 @@ pub struct Args {
     pub graphics: GraphicsBackend,
 }
 
+pub struct Files {
+    pub input: PathBuf,
+    pub output: PathBuf,
+    pub filename: String,
+}
 impl Args {
-    pub fn validate(&self) -> anyhow::Result<(PathBuf, PathBuf, f64)> {
-        if self.input.extension().and_then(|e| e.to_str()) != Some("exe") {
-            anyhow::bail!("Input file is not an executable: {:?}", self.input);
-        }
+    pub fn validate(&self) -> anyhow::Result<(Vec<Files>, f64)> {
+        let mut list = Vec::new();
 
         if !self.input.exists() {
-            anyhow::bail!("Input file does not exist: {:?}", self.input);
-        }
-        let output = self
-            .output
-            .clone()
-            .unwrap_or_else(|| PathBuf::from("output.pdf"));
-
-        if output.exists() {
-            anyhow::bail!("Output file already exists: {:?}", output);
+            anyhow::bail!("Input does not exist: {:?}", self.input);
         }
 
-        let input = std::fs::canonicalize(&self.input)?;
+        let out_dir = self.output.clone().unwrap_or_else(|| PathBuf::from("out"));
+
+        if !out_dir.exists() {
+            std::fs::create_dir_all(&out_dir)?;
+        }
+        if out_dir.is_file() {
+            anyhow::bail!("Output path must be a directory, not a file: {:?}", out_dir);
+        }
+        if self.input.is_dir() {
+            let files = crate::utils::find_files(self.input.clone().as_path(), "exe")?;
+
+            if files.is_empty() {
+                anyhow::bail!("No .exe files found in input directory");
+            }
+            for file in files {
+                let input = std::fs::canonicalize(&file)?;
+                let filename = input.file_stem().unwrap().to_string_lossy().to_string();
+
+                let output = out_dir.join(format!("{}.pdf", filename));
+
+                list.push(Files {
+                    input,
+                    output,
+                    filename,
+                });
+            }
+        } else {
+            if self.input.extension().and_then(|e| e.to_str()) != Some("exe") {
+                anyhow::bail!(
+                    "Input must be a directory or an .exe file: {:?}",
+                    self.input
+                );
+            }
+
+            let input = std::fs::canonicalize(&self.input)?;
+            let filename = input.file_stem().unwrap().to_string_lossy().to_string();
+
+            let output = out_dir.join(format!("{}.pdf", filename));
+
+            if output.exists() {
+                anyhow::bail!("Output file already exists: {:?}", output);
+            }
+
+            list.push(Files {
+                input,
+                output,
+                filename,
+            });
+        }
 
         let scale = self.scale as f64 / 10.0;
 
-        Ok((input, output, scale))
+        Ok((list, scale))
     }
 }

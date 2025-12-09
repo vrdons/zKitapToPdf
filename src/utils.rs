@@ -24,10 +24,10 @@ pub fn clear_dir(dir: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-pub fn find_files(temp_path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
+pub fn find_files(path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
     let mut dlls = Vec::new();
 
-    for entry in WalkDir::new(temp_path)
+    for entry in WalkDir::new(path)
         .follow_links(true)
         .into_iter()
         .filter_map(Result::ok)
