@@ -50,11 +50,20 @@ fn main() -> anyhow::Result<()> {
         let roaming = get_roaming_path()?;
 
         let rc = roaming.clone();
-        let tmp = temp_dir.to_path_buf().clone();
-        let stp = stop_watch.clone();
-        let _watcher = std::thread::spawn(move || {
-            utils::watch_and_copy(&rc, &tmp, "dll", stp)
-                .unwrap_or_else(|e| println!("watch: {}", e))
+        let tmp1 = temp_dir.to_path_buf().clone();
+        let tmp2 = temp_dir.to_path_buf().clone();
+        let stp1 = stop_watch.clone();
+        let stp2 = stop_watch.clone();
+        let inet = executable::get_inetcache()?.clone();
+
+        let _t1 = std::thread::spawn(move || {
+            utils::watch_and_copy_swf(&rc, &tmp1, stp1)
+                .unwrap_or_else(|e| println!("watch rc: {}", e));
+        });
+
+        let _t2 = std::thread::spawn(move || {
+            utils::watch_and_copy_swf(&inet, &tmp2, stp2)
+                .unwrap_or_else(|e| println!("watch inet: {}", e));
         });
         execute_exe(&input)?.wait()?;
 
@@ -64,7 +73,7 @@ fn main() -> anyhow::Result<()> {
         stop_watch.store(true, Ordering::Relaxed);
 
         let dlls = find_files(&temp_dir, "dll")?;
-        let mut i = 0;
+        let mut i = 1;
         for dll in dlls {
             let file = File::open(dll)?;
 
