@@ -24,7 +24,7 @@ pub fn clear_dir(dir: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-pub fn find_dlls(temp_path: &Path) -> anyhow::Result<Vec<String>> {
+pub fn find_files(temp_path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
     let mut dlls = Vec::new();
 
     for entry in WalkDir::new(temp_path)
@@ -37,7 +37,7 @@ pub fn find_dlls(temp_path: &Path) -> anyhow::Result<Vec<String>> {
                 .path()
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .map(|ext| ext.eq_ignore_ascii_case("dll"))
+                .map(|ext| ext.eq_ignore_ascii_case(extension))
                 .unwrap_or(false)
             {
                 dlls.push(entry.path().to_string_lossy().to_string());

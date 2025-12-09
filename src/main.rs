@@ -12,7 +12,7 @@ use std::{
 use crate::{
     cli::Args,
     executable::{execute_exe, get_roaming_path, setup_environment},
-    utils::{clear_dir, find_dlls, take_screenshot},
+    utils::{clear_dir, find_files, take_screenshot},
 };
 
 use clap::Parser;
@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
     std::thread::sleep(Duration::from_millis(5000));
     stop_watch.store(true, Ordering::Relaxed);
 
-    let dlls = find_dlls(&temp_dir)?;
+    let dlls = find_files(&temp_dir, "dll")?;
     let mut i = 0;
     for dll in dlls {
         let file = File::open(dll)?;
@@ -101,6 +101,7 @@ fn main() -> anyhow::Result<()> {
             i += 1;
         }
     }
+    println!("Finished frames, saving pdf file");
     doc.save(output.to_string_lossy().to_string())?;
     Ok(())
 }
