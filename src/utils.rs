@@ -32,21 +32,20 @@ pub fn find_files(path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
         .into_iter()
         .filter_map(Result::ok)
     {
-        if entry.file_type().is_file() {
-            if entry
+        if entry.file_type().is_file()
+            && entry
                 .path()
                 .extension()
                 .and_then(|ext| ext.to_str())
                 .map(|ext| ext.eq_ignore_ascii_case(extension))
                 .unwrap_or(false)
-            {
-                dlls.push(entry.path().to_string_lossy().to_string());
-            }
+        {
+            dlls.push(entry.path().to_string_lossy().to_string());
         }
     }
 
     if dlls.is_empty() {
-        anyhow::bail!("temp klasörü boş veya dll yok");
+        anyhow::bail!("temp folder is empty or dll not found");
     }
 
     dlls.sort_by_key(|path| {
@@ -67,7 +66,7 @@ pub fn find_files(path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
 }
 pub fn watch_and_copy(
     path: &PathBuf,
-    out: &PathBuf,
+    out: &Path,
     extension: &str,
     stop: Arc<AtomicBool>,
 ) -> Result<()> {
@@ -119,7 +118,7 @@ pub fn watch_and_copy(
     Ok(())
 }
 
-pub fn take_screenshot(exporter: &Exporter, swf: &mut Vec<u8>) -> Result<Vec<RgbaImage>> {
+pub fn take_screenshot(exporter: &Exporter, swf: &mut [u8]) -> Result<Vec<RgbaImage>> {
     let movie_export = exporter.start_exporting_movie(swf)?;
 
     let mut result = Vec::new();

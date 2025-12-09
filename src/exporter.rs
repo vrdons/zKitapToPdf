@@ -59,7 +59,7 @@ impl Exporter {
         })
     }
 
-    pub fn start_exporting_movie(&self, file: &mut Vec<u8>) -> Result<MovieExport> {
+    pub fn start_exporting_movie(&self, file: &mut [u8]) -> Result<MovieExport> {
         let movie = SwfMovie::from_data(file, "".to_string(), None)?;
         let width = movie.width().to_pixels();
         let width = (width * self.scale).round() as u32;
