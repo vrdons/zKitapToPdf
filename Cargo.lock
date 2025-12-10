@@ -4006,6 +4006,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "zKitap2pdf"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "futures",
+ "image",
+ "notify",
+ "oxidize-pdf",
+ "ruffle_core",
+ "ruffle_render_wgpu",
+ "swf",
+ "walkdir",
+]
+
+[[package]]
 name = "zerocopy"
 version = "0.8.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4078,22 +4094,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "zkitaptopdf"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "futures",
- "image",
- "notify",
- "oxidize-pdf",
- "ruffle_core",
- "ruffle_render_wgpu",
- "swf",
- "walkdir",
 ]
 
 [[package]]

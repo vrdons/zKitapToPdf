@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
     let temp_dir = Path::new(paths::TEMP_DIR);
     let exporter = exporter::Exporter::new(&exporter::Opt {
         graphics: arg.graphics,
-        scale: scale,
+        scale,
     })?;
     setup_environment()?;
 
@@ -72,8 +72,8 @@ fn main() -> anyhow::Result<()> {
         std::thread::sleep(Duration::from_millis(15000));
         stop_watch.store(true, Ordering::Relaxed);
 
-        let dlls = find_files(&temp_dir, "dll")?;
-        let mut i = 1;
+        let dlls = find_files(temp_dir, "dll")?;
+        let mut i = 0;
         for dll in dlls {
             let file = File::open(dll)?;
 
@@ -94,7 +94,7 @@ fn main() -> anyhow::Result<()> {
             write_swf_raw_tags(&header, &dec.data, &mut out)?;
 
             let frames = take_screenshot(&exporter, &mut out.into_inner())?;
-            for (_frame, image) in frames.iter().enumerate() {
+            for image in frames.iter() {
                 let width = image.width() as f64;
                 let height = image.height() as f64;
                 let mut page = Page::new(width, height);

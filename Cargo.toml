@@ -1,7 +1,27 @@
 [package]
-name = "zkitaptopdf"
-version = "0.1.0"
+name = "zKitap2pdf"
+version = "0.1.1"
 edition = "2024"
+description = "zKitap2pdf is a tool for converting e-books from exe to pdf format. Works on GPU (OpenGL, Vulkan, DX12 etc.)"
+authors = ["vrdons <vrdons@proton.me>", "ErenayDev <erenaydev@proton.me>"]
+license = "MIT"
+repository = "https://github.com/vrdons/zKitap2pdf"
+homepage = "https://github.com/vrdons/zKitap2pdf"
+readme = "README.md"
+keywords = ["zKitap", "sfw", "flash", "ruffle", "zKitap2pdf"]
+rust-version = "1.87"
+exclude = [
+    "target/",
+    ".git/",
+    ".github/",
+    "tools/",
+    "*.log",
+    "debug/",
+    "wine/",
+    "out/",
+    "temp/",
+    "in/"
+]
 
 [dependencies]
 anyhow = "1.0.100"
@@ -14,3 +34,31 @@ ruffle_core = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "maste
 ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle.git", branch = "master", package="ruffle_render_wgpu", features = ["clap"]}
 futures = "0.3.31"
 oxidize-pdf = "1.6.5"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }-{ version }{ archive-suffix }"
+bin-dir = "{ bin }{ binary-ext }"
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/zKitap2pdf", dest = "/usr/bin/zKitap2pdf", mode = "755" },
+]
+summary = "Convert e-books EXE's to PDF"
+description = """
+zKitap2pdf is a tool for converting e-books from exe to pdf format. Works on GPU (OpenGL, Vulkan, DX12 etc.)
+"""
+license = "MIT"
+
+[package.metadata.deb]
+maintainer = "ErenayDev <erenaydev@proton.me>"
+copyright = "2025, ErenayDev <erenaydev@proton.me>"
+extended-description = """
+zKitap2pdf is a tool for converting e-books from exe to pdf format. Works on GPU (OpenGL, Vulkan, DX12 etc.)
+"""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/zKitap2pdf", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/zKitap2pdf/", "644"],
+]
