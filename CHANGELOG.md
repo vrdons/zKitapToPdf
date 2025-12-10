@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2025-12-10
+
+### Bug Fixes
+
+- Remove unused inetcache checking
+- No watch_and_copy function
+- Don't clear temp file when loading
+- "Output file must be a PDF" when using single file
+- Tiny memory leakage
+
+### Features
+
+- Additional improvements and fixes
+
+### Miscellaneous Tasks
+
+- Bump oxidize-pdf from 1.6.5 to 1.6.6
+- Bump ruffle_render_wgpu from `60e361e` to `5939da6`
+- Review readme
+- Review cargo
+- Add default wine path to WINEPREFIX
+- Move take_screenshot to exporter
+- Drop paths.rs
+- Bump version to 0.1.2
+
+### Refactor
+
+- Add support for single output file
+- Do not use paths::WINE
+
+### Testing
+
+- Try to fix cap publisher's issue
+
+### Ci
+
+- Drop macos support
+
+### Merge
+
+- Integrate changes from feat/refactor-code
+
 ## [0.1.1] - 2025-12-09
 
 ### Bug Fixes
@@ -35,6 +77,7 @@ All notable changes to this project will be documented in this file.
 - Remove size tag
 - Rename find_dlls to find_files
 - Skip file named "p"
+- Update changelog for v0.1.1
 
 ### Refactor
 
