@@ -12,7 +12,7 @@ use std::{
 use crate::{
     cli::Args,
     executable::{execute_exe, get_roaming_path, setup_environment},
-    utils::{clear_dir, find_files, take_screenshot},
+    utils::{clear_dir, find_files},
 };
 
 use clap::Parser;
@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     let arg = Args::parse();
     let (files, scale) = arg.validate()?;
     let temp_dir = Path::new(paths::TEMP_DIR);
-    let exporter = exporter::Exporter::new(&exporter::Opt {
+    let exporter = exporter::Exporter::new(&exporter::ExporterOpt {
         graphics: arg.graphics,
         scale,
     })?;
@@ -86,7 +86,7 @@ fn main() -> anyhow::Result<()> {
             let mut out = Cursor::new(Vec::<u8>::new());
             write_swf_raw_tags(&header, &dec.data, &mut out)?;
 
-            let frames = take_screenshot(&exporter, &mut out.into_inner())?;
+            let frames = exporter.capture_frames(&mut out.into_inner())?;
             for image in frames.iter() {
                 let width = image.width() as f64;
                 let height = image.height() as f64;
