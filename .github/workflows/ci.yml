@@ -7,8 +7,6 @@ on:
     types: [submitted]
   push:
     branches: [master]
-  schedule:
-    - cron: "11 7 * * 1,4"
 
 env:
   RUSTFLAGS: -Dwarnings
@@ -25,7 +23,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -34,7 +32,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -70,14 +68,43 @@ jobs:
         rust: [stable]
     steps:
       - uses: actions/checkout@v6
+
+      - name: Setup Dev Drive (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: samypr100/setup-dev-drive@v4
+        with:
+          drive-size: 4GB
+          workspace-copy: true
+          env-mapping: |
+            CARGO_HOME,{{ DEV_DRIVE }}/.cargo
+            RUSTUP_HOME,{{ DEV_DRIVE }}/.rustup
+            CARGO_TARGET_DIR,{{ DEV_DRIVE }}/target
+
+      - name: Set Windows I/O optimization environment variables
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          echo "TEMP=${{ env.DEV_DRIVE }}\temp" >> $env:GITHUB_ENV
+          echo "TMP=${{ env.DEV_DRIVE }}\temp" >> $env:GITHUB_ENV
+          echo "COMPlus_ReadyToRun=0" >> $env:GITHUB_ENV
+          echo "COMPlus_ZapDisable=1" >> $env:GITHUB_ENV
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
+
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: test
           key: ${{ matrix.os }}
           shared-key: stable
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo test --workspace --no-fail-fast
-      - run: cargo test --workspace --examples --bins --no-fail-fast
+          workspaces: ${{ matrix.os == 'windows-latest' && env.DEV_DRIVE_WORKSPACE || github.workspace }}
+
+      - name: Run tests
+        working-directory: ${{ matrix.os == 'windows-latest' && env.DEV_DRIVE_WORKSPACE || github.workspace }}
+        run: cargo test --workspace --no-fail-fast
+
+      - name: Run example and binary tests
+        working-directory: ${{ matrix.os == 'windows-latest' && env.DEV_DRIVE_WORKSPACE || github.workspace }}
+        run: cargo test --workspace --examples --bins --no-fail-fast
