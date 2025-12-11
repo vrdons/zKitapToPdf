@@ -1,78 +1,100 @@
-use crate::{paths, utils};
-use anyhow::Result;
-use std::path::Path;
-use std::process::Stdio;
-use std::{
-    env, fs,
-    path::PathBuf,
-    process::{Child, Command},
-};
+use anyhow::{Result, anyhow};
+use std::env;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
+
+#[cfg(target_os = "linux")]
+use std::fs;
+
+#[cfg(target_os = "linux")]
+fn get_wineprefix() -> PathBuf {
+    if let Ok(env_prefix) = env::var("WINEPREFIX") {
+        return PathBuf::from(env_prefix);
+    }
+    let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".wine")
+}
 
 pub fn setup_environment() -> Result<()> {
     #[cfg(target_os = "linux")]
     {
-        utils::clear_dir(&get_temp_path()?)?;
-        fs::create_dir_all(paths::WINE_PATH)?;
-        let wine_path = Path::new(paths::WINE_PATH)
-            .canonicalize()?
-            .to_string_lossy()
-            .to_string();
-        Command::new("wine").arg("--version").spawn()?;
-        let mut child = Command::new("wineboot")
-            .env("WINEPREFIX", wine_path)
+        Command::new("wine")
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|_| anyhow!("Wine not installed or not found in PATH"))?
+            .success()
+            .then_some(())
+            .ok_or_else(|| anyhow!("Wine not installed or not found in PATH"))?;
+
+        let prefix = get_wineprefix();
+        fs::create_dir_all(&prefix)?;
+
+        let status = Command::new("wineboot")
+            .env("WINEPREFIX", &prefix)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .stdin(Stdio::null())
-            .spawn()?;
+            .status()?;
 
-        child.wait()?;
+        if !status.success() {
+            return Err(anyhow!("wineboot failed with status {}", status));
+        }
     }
+
     Ok(())
 }
 
-pub fn get_temp_path() -> anyhow::Result<PathBuf> {
+pub fn get_roaming_path() -> Result<PathBuf> {
     let username = env::var("USERNAME").or_else(|_| env::var("USER"))?;
 
-    #[cfg(target_os = "linux")]
-    let tmp = Path::new(crate::paths::WINE_PATH)
-        .join("drive_c")
-        .join("users")
-        .join(&username)
-        .join("AppData")
-        .join("Local")
-        .join("Temp");
-
-    Ok(tmp)
-}
-
-pub fn get_roaming_path() -> anyhow::Result<PathBuf> {
-    let username = env::var("USERNAME").or_else(|_| env::var("USER"))?;
-
-    #[cfg(target_os = "linux")]
-    let roaming = Path::new(crate::paths::WINE_PATH)
-        .join("drive_c")
-        .join("users")
-        .join(username)
-        .join("AppData")
-        .join("Roaming");
-
-    Ok(roaming)
-}
-
-pub fn execute_exe(path: &PathBuf) -> anyhow::Result<Child> {
     #[cfg(target_os = "linux")]
     {
-        let wp = Path::new(crate::paths::WINE_PATH)
-            .canonicalize()?
-            .to_string_lossy()
-            .to_string();
-        let child = Command::new("wine")
-            .env("WINEPREFIX", wp)
+        let wineprefix = get_wineprefix();
+        Ok(wineprefix
+            .join("drive_c")
+            .join("users")
+            .join(username)
+            .join("AppData")
+            .join("Roaming"))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = env::var("APPDATA") {
+            Ok(PathBuf::from(appdata))
+        } else {
+            Ok(PathBuf::from("C:/")
+                .join("Users")
+                .join(username)
+                .join("AppData")
+                .join("Roaming"))
+        }
+    }
+}
+
+pub fn execute_exe(path: &Path) -> Result<Child> {
+    #[cfg(target_os = "linux")]
+    {
+        let prefix = get_wineprefix();
+        Command::new("wine")
+            .arg(path)
+            .env("WINEPREFIX", &prefix)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .stdin(Stdio::null())
-            .arg(path)
-            .spawn()?;
-        Ok(child)
+            .spawn()
+            .map_err(|e| anyhow!("Failed to execute EXE via wine: {}", e))
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new(path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .stdin(Stdio::null())
+            .spawn()
+            .map_err(|e| anyhow!("Failed to execute EXE: {}", e))
     }
 }

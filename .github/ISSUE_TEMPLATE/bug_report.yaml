@@ -67,20 +67,6 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: browsers
-    attributes:
-      label: Browser (if applicable)
-      description: Which browser are you using?
-      multiple: true
-      options:
-        - Chrome
-        - Firefox
-        - Safari
-        - Edge
-        - Opera
-        - Other
-
   - type: textarea
     id: additional-context
     attributes:
