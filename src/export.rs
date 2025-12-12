@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
@@ -59,7 +59,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                     let file_path_for_exporter = next_file.path().to_path_buf();
                     println!("-- Started Processing: {:?}", file_path_for_exporter);
                     current_swf_file = Some(next_file);
-                    start_exporter(&exporter, &file_path_for_exporter, tx.clone(), &temp_dir)?;
+                    start_exporter(exporter, &file_path_for_exporter, tx.clone(), &temp_dir)?;
                 } else {
                     println!("-- No more swf to process");
                     if tx.send(ExporterEvents::FinishSWF).is_err() {
@@ -89,13 +89,19 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
             }
             ExporterEvents::FoundSWF(file_path) => {
                 println!("Found SWF file: {:?}", file_path.path());
+                let mut read = File::open(file_path.path())?;
+                let patched = {
+                    let decompressed = swf::decompress_swf(&mut read)?;
+                    utils::patch_swf(decompressed)?
+                };
+                fs::write(file_path.path(), &patched)?;
                 swf_queue.push_back(file_path);
                 if current_swf_file.is_none() {
                     if let Some(next_file) = swf_queue.pop_front() {
                         let file_path_for_exporter = next_file.path().to_path_buf();
                         println!("-- Started Processing: {:?}", file_path_for_exporter);
                         current_swf_file = Some(next_file);
-                        start_exporter(&exporter, &file_path_for_exporter, tx.clone(), &temp_dir)?;
+                        start_exporter(exporter, &file_path_for_exporter, tx.clone(), &temp_dir)?;
                     }
                 }
             }
@@ -111,12 +117,7 @@ fn start_exporter(
     tx: Sender<ExporterEvents>,
     temp_dir: &TempDir,
 ) -> Result<()> {
-    let mut file: File = File::open(input)?;
-    let mut patched = {
-        let decompressed = swf::decompress_swf(&mut file)?;
-        utils::patch_swf(decompressed)?
-    };
-    exporter.capture_frames(&mut patched, |_, image, end| {
+    exporter.capture_frames(input, |_, image, end| {
         let jpeg_buf = {
             let rgb_image = DynamicImage::ImageRgba8(image).to_rgb8();
             let mut jpeg_buf = Cursor::new(Vec::new());
@@ -140,8 +141,8 @@ fn start_exporter(
     Ok(())
 }
 
-fn start_child(input: &PathBuf) -> Result<()> {
-    let mut exe = executable::execute_exe(&input)?;
+fn start_child(input: &Path) -> Result<()> {
+    let mut exe = executable::execute_exe(input)?;
     exe.wait()?;
     Ok(())
 }
