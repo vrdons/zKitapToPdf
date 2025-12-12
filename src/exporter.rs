@@ -67,7 +67,7 @@ impl Exporter {
 
         let height = movie.height().to_pixels();
         let height = (height * self.scale).round() as u32;
-        println!("W: {} H: {}", width, height);
+        println!("Width: {} Height: {}", width, height);
 
         let target = TextureTarget::new(&self.descriptors.device, (width, height))
             .map_err(|e| anyhow!(e.to_string()))?;
@@ -81,7 +81,7 @@ impl Exporter {
             .with_viewport_dimensions(width, height, self.scale)
             .build();
 
-        println!("Toplam kare sayısı: {}", total_frames);
+        println!("Total Frames: {}", total_frames);
 
         for i in 0..total_frames {
             let capture_attempt: Result<Result<Option<RgbaImage>>, Box<dyn Any + Send>> = {

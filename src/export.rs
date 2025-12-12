@@ -71,7 +71,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 println!("-- Finished Processing SWF");
                 while let Some(next_file) = jpeg_queue.pop_front() {
                     let mut page = Page::new(width, height);
-                    let pdf_image = Image::from_jpeg_file(next_file.path().to_path_buf())?;
+                    let pdf_image = Image::from_jpeg_file(next_file.path())?;
                     page.add_image("img", pdf_image);
                     page.draw_image("img", 0.0, 0.0, width, height)?;
                     doc.add_page(page);
@@ -126,7 +126,6 @@ fn start_exporter(
             let mut jpeg_buf = Cursor::new(Vec::new());
             if let Err(e) = rgb_image.write_to(&mut jpeg_buf, ImageFormat::Jpeg) {
                 eprintln!("Failed to encode JPEG: {}", e);
-                return;
             }
             jpeg_buf.into_inner()
         };
@@ -139,14 +138,9 @@ fn start_exporter(
         };
         if let Err(e) = temp_file.write_all(&jpeg_buf) {
             eprintln!("Failed to write temp file: {}", e);
-            return;
         }
-        if tx.send(ExporterEvents::Frame(temp_file)).is_err() {
-            return;
-        }
-        if end && tx.send(ExporterEvents::FinishFrame).is_err() {
-            return;
-        }
+        let _ = tx.send(ExporterEvents::Frame(temp_file)).is_err();
+        if end && tx.send(ExporterEvents::FinishFrame).is_err() {}
     })?;
 
     Ok(())
@@ -168,7 +162,7 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
 
     let mut last_activity = Instant::now();
     let mut last_processed: HashMap<String, Instant> = HashMap::new();
-    const DEBOUNCE_DURATION: Duration = Duration::from_millis(1000);
+    const DEBOUNCE_DURATION: Duration = Duration::from_millis(2000);
     loop {
         match rx.recv_timeout(Duration::from_millis(500)) {
             Ok(event) => {
