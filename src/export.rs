@@ -107,7 +107,10 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
             }
         }
     }
-    t1.join().expect("Error when joining thread")?;
+    match t1.join() {
+        Ok(result) => result?,
+        Err(_) => return Err(anyhow::anyhow!("Watcher thread panicked")),
+    }
     Ok(())
 }
 
@@ -127,14 +130,22 @@ fn start_exporter(
             }
             jpeg_buf.into_inner()
         };
-        let temp_file = NamedTempFile::new_in(temp_dir.path()).unwrap();
-        if let Err(e) = fs::write(temp_file.path(), &jpeg_buf) {
+        let mut temp_file = match NamedTempFile::new_in(temp_dir.path()) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("Failed to create temp file: {}", e);
+                return;
+            }
+        };
+        if let Err(e) = temp_file.write_all(&jpeg_buf) {
             eprintln!("Failed to write temp file: {}", e);
             return;
         }
-        tx.send(ExporterEvents::Frame(temp_file)).unwrap();
-        if end {
-            tx.send(ExporterEvents::FinishFrame).unwrap();
+        if tx.send(ExporterEvents::Frame(temp_file)).is_err() {
+            return;
+        }
+        if end && tx.send(ExporterEvents::FinishFrame).is_err() {
+            return;
         }
     })?;
 
@@ -202,12 +213,18 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
                 }
                 last_processed.insert(filename.clone(), now);
                 println!("File captured: {}", filename);
-                let mut tempfile = NamedTempFile::new().expect("Failed to create temporary file");
-
-                tempfile
-                    .write_all(&bytes)
-                    .expect("Failed to write to temporary file");
-                sender.send(ExporterEvents::FoundSWF(tempfile)).ok();
+                let mut tempfile = match NamedTempFile::new() {
+                    Ok(f) => f,
+                    Err(e) => {
+                        eprintln!("Failed to create temporary file: {}", e);
+                        continue;
+                    }
+                };
+                if let Err(e) = tempfile.write_all(&bytes) {
+                    eprintln!("Failed to write to temporary file: {}", e);
+                    continue;
+                }
+                let _ = sender.send(ExporterEvents::FoundSWF(tempfile));
             }
 
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
