@@ -116,7 +116,7 @@ impl Exporter {
                     return Err(anyhow!("render/downcast error on frame {}: {:?}", i, e));
                 }
                 Err(e) => {
-                    eprintln!("Paniced on frame {}: {:?}", i, e);
+                    return Err(anyhow!("Panicked on frame {}: {:?}", i, e));
                 }
             }
         }

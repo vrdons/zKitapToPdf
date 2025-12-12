@@ -218,7 +218,9 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
                     eprintln!("Failed to write to temporary file: {}", e);
                     continue;
                 }
-                let _ = sender.send(ExporterEvents::FoundSWF(tempfile));
+                if sender.send(ExporterEvents::FoundSWF(tempfile)).is_err() {
+                    break;
+                }
             }
 
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
