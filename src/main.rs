@@ -17,6 +17,8 @@ fn main() -> anyhow::Result<()> {
         scale: args.scale,
     })?;
     setup_environment()?;
+    let mut errors = Vec::new();
+
     for file in &args.files {
         println!("Processing : {:?}", file.input);
         if let Err(e) = export::handle_exe(
@@ -27,8 +29,13 @@ fn main() -> anyhow::Result<()> {
             },
         ) {
             println!("An error occurred: {:?}", e);
+            errors.push((file.input.clone(), e));
         }
         std::thread::sleep(Duration::from_millis(1000));
+    }
+    if !errors.is_empty() {
+        eprintln!("Failed to process {} file(s)", errors.len());
+        eprintln!("{:?}", errors);
     }
     Ok(())
 }
