@@ -66,11 +66,12 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                         tx.clone(),
                         &mut total_frames,
                         &temp_dir,
-                    )
-                    .unwrap();
+                    )?;
                 } else {
                     println!("-- No more swf to process");
-                    tx.send(ExporterEvents::FinishSWF).unwrap();
+                    if tx.send(ExporterEvents::FinishSWF).is_err() {
+                        break;
+                    }
                 }
             }
             ExporterEvents::FinishSWF => {
@@ -90,7 +91,9 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                     doc.add_page(page);
                     fs::remove_file(next_file)?;
                 }
-                tx.send(ExporterEvents::FinishPDF).unwrap();
+                if tx.send(ExporterEvents::FinishPDF).is_err() {
+                    break;
+                }
             }
             ExporterEvents::FinishPDF => {
                 println!("-- Finished Processing PDF");
@@ -112,8 +115,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                             tx.clone(),
                             &mut total_frames,
                             &temp_dir,
-                        )
-                        .unwrap();
+                        )?;
                     }
                 }
             }
