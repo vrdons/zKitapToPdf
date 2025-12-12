@@ -31,7 +31,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
     doc.set_author("Rust Developer");
     let (tx, rx): (Sender<ExporterEvents>, Receiver<ExporterEvents>) = channel();
     let mut swf_queue: VecDeque<NamedTempFile> = VecDeque::new();
-    let mut jpeg_queue: VecDeque<PathBuf> = VecDeque::new();
+    let mut jpeg_queue: VecDeque<NamedTempFile> = VecDeque::new();
     start_child(&input_file)?;
 
     std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -50,7 +50,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
         };
         match event {
             ExporterEvents::Frame(temp_file) => {
-                jpeg_queue.push_back(temp_file.path().to_path_buf());
+                jpeg_queue.push_back(temp_file);
                 println!("Frame {} exported", frame_index);
                 frame_index += 1;
             }
@@ -71,11 +71,10 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 println!("-- Finished Processing SWF");
                 while let Some(next_file) = jpeg_queue.pop_front() {
                     let mut page = Page::new(width, height);
-                    let pdf_image = Image::from_jpeg_file(next_file.clone())?;
+                    let pdf_image = Image::from_jpeg_file(next_file.path().to_path_buf())?;
                     page.add_image("img", pdf_image);
                     page.draw_image("img", 0.0, 0.0, width, height)?;
                     doc.add_page(page);
-                    fs::remove_file(next_file)?;
                 }
                 if tx.send(ExporterEvents::FinishPDF).is_err() {
                     break;
@@ -86,6 +85,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 let pdf_path = args.file.output.clone();
                 println!("-- Exporting PDF to: {:?}", pdf_path);
                 doc.save(&pdf_path)?;
+                break;
             }
             ExporterEvents::FoundSWF(file_path) => {
                 println!("Found SWF file: {:?}", file_path.path());
