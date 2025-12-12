@@ -40,7 +40,6 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
     let t1 = std::thread::spawn(move || watch_roaming(tx2));
     let mut current_swf_file: Option<NamedTempFile> = None;
     let mut frame_index = 0;
-    let mut total_frames = 0;
     loop {
         let event = match rx.recv() {
             Ok(e) => e,
@@ -60,13 +59,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                     let file_path_for_exporter = next_file.path().to_path_buf();
                     println!("-- Started Processing: {:?}", file_path_for_exporter);
                     current_swf_file = Some(next_file);
-                    start_exporter(
-                        &exporter,
-                        &file_path_for_exporter,
-                        tx.clone(),
-                        &mut total_frames,
-                        &temp_dir,
-                    )?;
+                    start_exporter(&exporter, &file_path_for_exporter, tx.clone(), &temp_dir)?;
                 } else {
                     println!("-- No more swf to process");
                     if tx.send(ExporterEvents::FinishSWF).is_err() {
@@ -76,13 +69,6 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
             }
             ExporterEvents::FinishSWF => {
                 println!("-- Finished Processing SWF");
-                if frame_index < total_frames {
-                    println!("-- Waiting for processing remaining jpegs");
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-                while frame_index < total_frames {
-                    std::thread::sleep(Duration::from_millis(100));
-                }
                 while let Some(next_file) = jpeg_queue.pop_front() {
                     let mut page = Page::new(width, height);
                     let pdf_image = Image::from_jpeg_file(next_file.clone())?;
@@ -109,13 +95,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                         let file_path_for_exporter = next_file.path().to_path_buf();
                         println!("-- Started Processing: {:?}", file_path_for_exporter);
                         current_swf_file = Some(next_file);
-                        start_exporter(
-                            &exporter,
-                            &file_path_for_exporter,
-                            tx.clone(),
-                            &mut total_frames,
-                            &temp_dir,
-                        )?;
+                        start_exporter(&exporter, &file_path_for_exporter, tx.clone(), &temp_dir)?;
                     }
                 }
             }
@@ -129,13 +109,11 @@ fn start_exporter(
     exporter: &Exporter,
     input: &PathBuf,
     tx: Sender<ExporterEvents>,
-    total_frames: &mut u32,
     temp_dir: &TempDir,
 ) -> Result<()> {
     let mut file: File = File::open(input)?;
     let mut patched = {
         let decompressed = swf::decompress_swf(&mut file)?;
-        *total_frames += decompressed.header.num_frames() as u32;
         utils::patch_swf(decompressed)?
     };
     exporter.capture_frames(&mut patched, |_, image, end| {
