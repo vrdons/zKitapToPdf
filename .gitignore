@@ -5,5 +5,5 @@
 in
 *.pdf
 
-out
-.wine
+/out
+/.wine
