@@ -32,6 +32,12 @@ pub fn find_files(path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
 }
 
 pub fn patch_swf(file: SwfBuf, width: f64, height: f64) -> Result<Vec<u8>> {
+    if !width.is_finite() || width <= 0.0 {
+        anyhow::bail!("Invalid width: must be a positive finite number");
+    }
+    if !height.is_finite() || height <= 0.0 {
+        anyhow::bail!("Invalid height: must be a positive finite number");
+    }
     let header = Header {
         version: file.header.version(),
         compression: file.header.compression(),
