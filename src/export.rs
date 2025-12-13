@@ -95,8 +95,9 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                     let decompressed = swf::decompress_swf(&mut read)?;
                     utils::patch_swf(decompressed, width, height)?
                 };
-                fs::write(file_path.path(), &patched)?;
-                swf_queue.push_back(file_path);
+                let mut patched_file = tempfile::NamedTempFile::new_in(temp_dir.path())?;
+                patched_file.write_all(&patched)?;
+                swf_queue.push_back(patched_file);
                 if current_swf_file.is_none() {
                     if let Some(next_file) = swf_queue.pop_front() {
                         let file_path_for_exporter = next_file.path().to_path_buf();
