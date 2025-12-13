@@ -169,8 +169,7 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
     watcher.watch(&roaming_path, RecursiveMode::Recursive)?;
 
     let mut last_activity = Instant::now();
-    let mut last_processed: HashMap<String, Instant> = HashMap::new();
-    const DEBOUNCE_DURATION: Duration = Duration::from_millis(2000);
+    let mut pending: HashMap<String, NamedTempFile> = HashMap::new();
 
     loop {
         match rx.recv_timeout(Duration::from_millis(200)) {
@@ -210,33 +209,39 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
                 }
 
                 last_activity = Instant::now();
-                let now = Instant::now();
-                if let Some(last_time) = last_processed.get(&filename) {
-                    if now.duration_since(*last_time) < DEBOUNCE_DURATION {
-                        continue;
-                    }
-                }
-                last_processed.insert(filename.clone(), now);
-                println!("File captured: {}", filename);
-                let mut tempfile = match NamedTempFile::new() {
-                    Ok(f) => f,
-                    Err(e) => {
-                        eprintln!("Failed to create temporary file: {}", e);
-                        continue;
-                    }
+                let entry = match pending.entry(filename) {
+                    std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+                    std::collections::hash_map::Entry::Vacant(e) => match NamedTempFile::new() {
+                        Ok(f) => e.insert(f),
+                        Err(err) => {
+                            eprintln!("Failed to create temp file: {}", err);
+                            continue;
+                        }
+                    },
                 };
-                if let Err(e) = tempfile.write_all(&bytes) {
-                    eprintln!("Failed to write to temporary file: {}", e);
-                    continue;
-                }
-                if sender.send(ExporterEvents::FoundSWF(tempfile)).is_err() {
-                    break;
+
+                let new_len = bytes.len();
+                let old_len = entry.as_file().metadata()?.len();
+
+                if new_len >= old_len {
+                    entry.as_file_mut().set_len(0)?;
+                    entry.as_file_mut().write_all(&bytes)?;
                 }
             }
 
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                if last_activity.elapsed() >= Duration::from_secs(25) {
-                    println!("Inactivity timeout: no events for 20 => exiting watcher");
+                let secs = if pending.is_empty() { 35 } else { 15 };
+                if last_activity.elapsed() >= Duration::from_secs(secs) {
+                    if pending.is_empty() {
+                        println!("No SWF found. Watcher exiting silently.");
+                        break;
+                    }
+                    for (_name, tmpfile) in pending.into_iter() {
+                        if sender.send(ExporterEvents::FoundSWF(tmpfile)).is_err() {
+                            return Ok(());
+                        }
+                    }
+
                     break;
                 }
             }
