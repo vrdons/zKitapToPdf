@@ -14,21 +14,29 @@ pub struct Args {
     pub output: Option<PathBuf>,
 
     /// Scale factor for the image (bigger = better quality)
-    #[clap(short = 's', long, default_value_t = 20 ,value_parser = clap::value_parser!(u64).range(10..=30))]
+    #[clap(short = 's', long, default_value_t = 28 ,value_parser = clap::value_parser!(u64).range(10..=30))]
     pub scale: u64,
 
     #[clap(long, short, default_value = "default")]
     pub graphics: GraphicsBackend,
 }
 
+#[derive(Clone, Debug)]
 pub struct Files {
     pub input: PathBuf,
     pub output: PathBuf,
     pub filename: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ValidatedArgs {
+    pub files: Vec<Files>,
+    pub scale: f64,
+    pub graphics: GraphicsBackend,
+}
+
 impl Args {
-    pub fn validate(&self) -> anyhow::Result<(Vec<Files>, f64)> {
+    pub fn validate(&self) -> anyhow::Result<ValidatedArgs> {
         let mut list = Vec::new();
 
         if !self.input.exists() {
@@ -99,6 +107,10 @@ impl Args {
 
         let scale = self.scale as f64 / 10.0;
 
-        Ok((list, scale))
+        Ok(ValidatedArgs {
+            files: list,
+            scale,
+            graphics: self.graphics,
+        })
     }
 }
