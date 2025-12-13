@@ -209,9 +209,16 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
                 }
 
                 last_activity = Instant::now();
-                let entry = pending
-                    .entry(filename)
-                    .or_insert_with(|| NamedTempFile::new().expect("tempfile"));
+                let entry = match pending.entry(filename) {
+                    std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+                    std::collections::hash_map::Entry::Vacant(e) => match NamedTempFile::new() {
+                        Ok(f) => e.insert(f),
+                        Err(err) => {
+                            eprintln!("Failed to create temp file: {}", err);
+                            continue;
+                        }
+                    },
+                };
 
                 entry.as_file_mut().set_len(0)?;
                 entry.as_file_mut().write_all(&bytes)?;
