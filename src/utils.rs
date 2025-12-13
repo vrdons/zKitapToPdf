@@ -31,15 +31,15 @@ pub fn find_files(path: &Path, extension: &str) -> anyhow::Result<Vec<String>> {
     Ok(file_paths)
 }
 
-pub fn patch_swf(file: SwfBuf) -> Result<Vec<u8>> {
+pub fn patch_swf(file: SwfBuf, width: f64, height: f64) -> Result<Vec<u8>> {
     let header = Header {
         version: file.header.version(),
         compression: file.header.compression(),
         stage_size: Rectangle {
             x_min: Twips::ZERO,
-            x_max: Twips::from_pixels(566.0),
+            x_max: Twips::from_pixels(width),
             y_min: Twips::ZERO,
-            y_max: Twips::from_pixels(807.0),
+            y_max: Twips::from_pixels(height),
         },
         frame_rate: file.header.frame_rate(),
         num_frames: file.header.num_frames(),

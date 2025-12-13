@@ -25,7 +25,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let input_file = args.file.input.clone();
     let width = (566.0 * args.scale).round();
-    let height = (800.0 * args.scale).round();
+    let height = (807.0 * args.scale).round();
     let mut doc = Document::new();
     doc.set_title(args.file.filename);
     doc.set_author("Rust Developer");
@@ -34,8 +34,6 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
     let mut jpeg_queue: VecDeque<NamedTempFile> = VecDeque::new();
     start_child(&input_file)?;
 
-    std::thread::sleep(std::time::Duration::from_millis(1000));
-    println!("Child process finished, waiting for sys1.dll");
     let tx2 = tx.clone();
     let t1 = std::thread::spawn(move || watch_roaming(tx2));
     let mut current_swf_file: Option<NamedTempFile> = None;
@@ -92,7 +90,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 let mut read = File::open(file_path.path())?;
                 let patched = {
                     let decompressed = swf::decompress_swf(&mut read)?;
-                    utils::patch_swf(decompressed)?
+                    utils::patch_swf(decompressed, width, height)?
                 };
                 fs::write(file_path.path(), &patched)?;
                 swf_queue.push_back(file_path);
@@ -107,6 +105,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
             }
         }
     }
+    drop(tx);
     match t1.join() {
         Ok(result) => result?,
         Err(_) => return Err(anyhow::anyhow!("Watcher thread panicked")),
@@ -124,8 +123,11 @@ fn start_exporter(
         let jpeg_buf = {
             let rgb_image = DynamicImage::ImageRgba8(image).to_rgb8();
             let mut jpeg_buf = Cursor::new(Vec::new());
-            if let Err(e) = rgb_image.write_to(&mut jpeg_buf, ImageFormat::Jpeg) {
-                eprintln!("Failed to encode JPEG: {}", e);
+            if rgb_image
+                .write_to(&mut jpeg_buf, ImageFormat::Jpeg)
+                .is_err()
+            {
+                eprintln!("Failed to encode JPEG");
             }
             jpeg_buf.into_inner()
         };
@@ -161,71 +163,71 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
     watcher.watch(&roaming_path, RecursiveMode::Recursive)?;
 
     let mut last_activity = Instant::now();
-    let mut last_processed: HashMap<String, Instant> = HashMap::new();
-    const DEBOUNCE_DURATION: Duration = Duration::from_millis(2000);
+    let mut pending: HashMap<String, NamedTempFile> = HashMap::new();
+
     loop {
-        match rx.recv_timeout(Duration::from_millis(500)) {
-            Ok(event) => {
-                let event = event?;
+        match rx.recv_timeout(Duration::from_millis(200)) {
+            Ok(res) => {
+                let event = res?;
 
                 if !matches!(event.kind, notify::EventKind::Modify(_)) {
                     continue;
                 }
 
-                let Some(file_path) = event.paths.first() else {
+                let Some(path) = event.paths.first() else {
                     continue;
                 };
-                let Some(filename_os) = file_path.file_name() else {
-                    continue;
-                };
-                let filename = filename_os.to_string_lossy().to_string();
 
-                const IGNORED_FILE: &str = "p.dll";
-                if filename == IGNORED_FILE {
+                let Some(name) = path.file_name() else {
+                    continue;
+                };
+
+                let filename = name.to_string_lossy().to_string();
+
+                if filename == "p.dll" {
                     continue;
                 }
 
-                let Ok(bytes) = std::fs::read(file_path) else {
-                    continue;
+                let bytes = match fs::read(path) {
+                    Ok(b) => b,
+                    Err(_) => continue,
                 };
 
                 if bytes.len() < 3 {
                     continue;
                 }
-                let header = &bytes[..3];
-                let is_swf = header == b"FWS" || header == b"CWS" || header == b"ZWS";
-                if !is_swf {
-                    continue;
+
+                match &bytes[..3] {
+                    b"FWS" | b"CWS" | b"ZWS" => {}
+                    _ => continue,
                 }
 
                 last_activity = Instant::now();
-                let now = Instant::now();
-                if let Some(last_time) = last_processed.get(&filename) {
-                    if now.duration_since(*last_time) < DEBOUNCE_DURATION {
-                        continue;
-                    }
-                }
-                last_processed.insert(filename.clone(), now);
-                println!("File captured: {}", filename);
-                let mut tempfile = match NamedTempFile::new() {
-                    Ok(f) => f,
-                    Err(e) => {
-                        eprintln!("Failed to create temporary file: {}", e);
-                        continue;
-                    }
-                };
-                if let Err(e) = tempfile.write_all(&bytes) {
-                    eprintln!("Failed to write to temporary file: {}", e);
-                    continue;
-                }
-                if sender.send(ExporterEvents::FoundSWF(tempfile)).is_err() {
-                    break;
-                }
+                let entry = pending
+                    .entry(filename)
+                    .or_insert_with(|| NamedTempFile::new().expect("tempfile"));
+
+                entry.as_file_mut().set_len(0)?;
+                entry.as_file_mut().write_all(&bytes)?;
+                entry.as_file_mut().sync_all()?;
             }
 
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                if last_activity.elapsed() >= Duration::from_secs(20) {
-                    println!("Inactivity timeout: no events for 20 => exiting watcher");
+                let secs = if pending.is_empty() { 35 } else { 15 };
+                if last_activity.elapsed() >= Duration::from_secs(secs) {
+                    if pending.is_empty() {
+                        println!("No SWF found. Watcher exiting silently.");
+                        break;
+                    }
+                    for (_name, tmpfile) in pending.into_iter() {
+                        if sender
+                            .send(ExporterEvents::FoundSWF(tmpfile))
+                            .is_err()
+                        {
+                            return Ok(());
+                        }
+                    }
+
                     break;
                 }
             }
