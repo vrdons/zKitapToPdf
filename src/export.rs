@@ -7,6 +7,7 @@ use anyhow::Result;
 use image::{DynamicImage, ImageFormat};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use oxidize_pdf::{Document, Image, Page};
+use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
 use std::io::{Cursor, Write};
 use tempfile::{NamedTempFile, TempDir};
@@ -14,7 +15,7 @@ use tempfile::{NamedTempFile, TempDir};
 use crate::cli::Files;
 use crate::exporter::Exporter;
 use crate::utils::find_real_size;
-use crate::{executable, utils};
+use crate::{crypto, executable, utils};
 
 #[derive(Debug, Clone)]
 pub struct HandleArgs {
@@ -112,6 +113,15 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                     }
                 }
             }
+            ExporterEvents::FoundProcess(file_path) => {
+                println!("Found Process file: {:?}", file_path.path());
+                let mut read = File::open(file_path.path())?;
+                let decompressed = swf::decompress_swf(&mut read)?;
+                if let Some(text) = crypto::check_process(&decompressed)? {
+                    let json: HashMap<String, Value> = serde_json::from_str(&text)?;
+                    println!("Json File: {:?}", json);
+                }
+            }
         }
     }
     drop(tx);
@@ -192,10 +202,6 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
 
                 let filename = name.to_string_lossy().to_string();
 
-                if filename == "p.dll" {
-                    continue;
-                }
-
                 let bytes = match fs::read(path) {
                     Ok(b) => b,
                     Err(_) => continue,
@@ -232,9 +238,11 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
                         println!("No SWF found. Watcher exiting silently.");
                         break;
                     }
-                    for (_name, tmpfile) in pending.into_iter() {
-                        if sender.send(ExporterEvents::FoundSWF(tmpfile)).is_err() {
-                            return Ok(());
+                    for (name, tmpfile) in pending.into_iter() {
+                        if name == "p.dll" {
+                            let _ = sender.send(ExporterEvents::FoundProcess(tmpfile));
+                        } else if sender.send(ExporterEvents::FoundSWF(tmpfile)).is_err() {
+                                return Ok(());
                         }
                     }
 
@@ -255,6 +263,7 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
 #[derive(Debug)]
 pub enum ExporterEvents {
     FoundSWF(NamedTempFile),
+    FoundProcess(NamedTempFile),
     Frame(NamedTempFile),
     FinishSWF,
     FinishPDF,

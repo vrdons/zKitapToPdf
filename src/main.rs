@@ -9,6 +9,7 @@ pub mod executable;
 pub mod export;
 pub mod exporter;
 pub mod utils;
+pub mod crypto;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse().validate()?;
