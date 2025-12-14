@@ -24,8 +24,8 @@ pub struct HandleArgs {
 pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let input_file = args.file.input.clone();
-    let width = (566.0 * args.scale).round();
-    let height = (807.0 * args.scale).round();
+    let width = 566.0;
+    let height = 807.0;
     let mut doc = Document::new();
     doc.set_title(args.file.filename);
     doc.set_author("Rust Developer");
@@ -52,7 +52,17 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 println!("Frame {} exported", frame_index);
                 frame_index += 1;
             }
-            ExporterEvents::FinishFrame => {
+            ExporterEvents::FinishSWF => {
+                println!("-- Finished Processing SWF");
+                while let Some(next_file) = jpeg_queue.pop_front() {
+                    let width = (width * args.scale).round();
+                    let height = (height * args.scale).round();
+                    let mut page = Page::new(width, height);
+                    let pdf_image = Image::from_jpeg_file(next_file.path())?;
+                    page.add_image("img", pdf_image);
+                    page.draw_image("img", 0.0, 0.0, width, height)?;
+                    doc.add_page(page);
+                }
                 if let Some(next_file) = swf_queue.pop_front() {
                     let file_path_for_exporter = next_file.path().to_path_buf();
                     println!("-- Started Processing: {:?}", file_path_for_exporter);
@@ -60,25 +70,12 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                     start_exporter(exporter, &file_path_for_exporter, &temp_dir, |file| {
                         let _ = tx.send(ExporterEvents::Frame(file));
                     })?;
-                    let _ = tx.send(ExporterEvents::FinishFrame);
+                    let _ = tx.send(ExporterEvents::FinishSWF);
                 } else {
                     println!("-- No more swf to process");
-                    if tx.send(ExporterEvents::FinishSWF).is_err() {
+                    if tx.send(ExporterEvents::FinishPDF).is_err() {
                         break;
                     }
-                }
-            }
-            ExporterEvents::FinishSWF => {
-                println!("-- Finished Processing SWF");
-                while let Some(next_file) = jpeg_queue.pop_front() {
-                    let mut page = Page::new(width, height);
-                    let pdf_image = Image::from_jpeg_file(next_file.path())?;
-                    page.add_image("img", pdf_image);
-                    page.draw_image("img", 0.0, 0.0, width, height)?;
-                    doc.add_page(page);
-                }
-                if tx.send(ExporterEvents::FinishPDF).is_err() {
-                    break;
                 }
             }
             ExporterEvents::FinishPDF => {
@@ -106,7 +103,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                         start_exporter(exporter, &file_path_for_exporter, &temp_dir, |file| {
                             let _ = tx.send(ExporterEvents::Frame(file));
                         })?;
-                        let _ = tx.send(ExporterEvents::FinishFrame);
+                        let _ = tx.send(ExporterEvents::FinishSWF);
                     }
                 }
             }
@@ -254,7 +251,6 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
 pub enum ExporterEvents {
     FoundSWF(NamedTempFile),
     Frame(NamedTempFile),
-    FinishFrame,
     FinishSWF,
     FinishPDF,
 }
