@@ -220,13 +220,7 @@ fn watch_roaming(sender: Sender<ExporterEvents>) -> Result<()> {
                     },
                 };
 
-                let new_len = bytes.len();
-                let old_len = entry.as_file().metadata()?.len();
-
-                if new_len >= old_len {
-                    entry.as_file_mut().set_len(0)?;
-                    entry.as_file_mut().write_all(&bytes)?;
-                }
+                fs::write(entry.path(), &bytes)?;
             }
 
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
