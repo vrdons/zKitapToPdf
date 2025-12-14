@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2025-12-14
+
+### Miscellaneous Tasks
+
+- Do not use --input argument
+
 ## [0.1.3-hotfix] - 2025-12-14
 
 ### Bug Fixes
