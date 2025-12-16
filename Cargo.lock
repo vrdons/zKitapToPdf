@@ -4075,6 +4075,7 @@ dependencies = [
  "oxidize-pdf",
  "ruffle_core",
  "ruffle_render_wgpu",
+ "serde",
  "serde_json",
  "swf",
  "tempfile",

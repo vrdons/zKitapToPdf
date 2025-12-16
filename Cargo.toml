@@ -38,6 +38,7 @@ block-padding = "0.3.3"
 blowfish = "0.9.1"
 ecb = "0.1.2"
 serde_json = "1.0.145"
+serde = "1.0.228"
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }-{ version }{ archive-suffix }"

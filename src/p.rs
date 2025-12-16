@@ -4,13 +4,27 @@ use block_padding::Pkcs7;
 use blowfish::Blowfish;
 use blowfish::cipher::{BlockDecryptMut, KeyInit};
 use ecb::Decryptor;
+use serde::{Deserialize, Serialize};
 use swf::avm2::types::Op;
 use swf::extensions::ReadSwfExt;
 use swf::{SwfBuf, avm2::read::Reader, parse_swf};
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Config {
+    pub fernus_code: String,
+    pub color: u32,
+    pub server: String,
+    pub password_status: bool,
+    pub pkxkname: String,
+    pub publisher: String,
+    pub app_type: String,
+    pub server_status: bool,
+}
+
 const DECRYPT_KEY: &str = "pub1isher1l0O";
 
-pub fn check_process(buf: &SwfBuf) -> Result<Option<String>> {
+pub fn check_process(buf: &SwfBuf) -> Result<Option<Config>> {
     let parsed = parse_swf(buf)?;
 
     for tag in &parsed.tags {
@@ -33,8 +47,8 @@ pub fn check_process(buf: &SwfBuf) -> Result<Option<String>> {
                             let decrypted = KKDecryptor
                                 .decrypt(s, DECRYPT_KEY)
                                 .map_err(|e| anyhow!(e))?;
-
-                            return Ok(Some(decrypted));
+                            let config: Config = serde_json::from_str(&decrypted)?;
+                            return Ok(Some(config));
                         }
                     }
                 }
@@ -86,4 +100,29 @@ impl KKDecryptor {
             .map(|(i, &b)| b ^ key[i % key_len])
             .collect()
     }
+}
+
+#[derive(Debug, Default)]
+pub struct KkObject {
+    pub f1: i32,
+    pub f2: i32,
+    pub f3: i32,
+}
+pub fn get_kkobject(config: Config) -> Result<KkObject> {
+    let decrypted = KKDecryptor.decrypt(&config.fernus_code, DECRYPT_KEY)?;
+    let parts: Vec<i32> = decrypted
+        .split('x')
+        .map(|p| p.parse::<i32>())
+        .collect::<Result<_, _>>()?;
+
+    if parts.len() != 3 {
+        anyhow::bail!("fd1 output format invalid: {}", decrypted);
+    }
+    let len = config.pkxkname.len() as i32;
+
+    Ok(KkObject {
+        f1: parts[0] + len,
+        f2: parts[1] + len,
+        f3: parts[2] + len,
+    })
 }

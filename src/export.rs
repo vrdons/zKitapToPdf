@@ -7,7 +7,6 @@ use anyhow::Result;
 use image::{DynamicImage, ImageFormat};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use oxidize_pdf::{Document, Image, Page};
-use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
 use std::io::{Cursor, Write};
 use tempfile::{NamedTempFile, TempDir};
@@ -15,7 +14,7 @@ use tempfile::{NamedTempFile, TempDir};
 use crate::cli::Files;
 use crate::exporter::Exporter;
 use crate::utils::find_real_size;
-use crate::{p, executable, utils};
+use crate::{executable, p, utils};
 
 #[derive(Debug, Clone)]
 pub struct HandleArgs {
@@ -117,9 +116,10 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 println!("Found Process file: {:?}", file_path.path());
                 let mut read = File::open(file_path.path())?;
                 let decompressed = swf::decompress_swf(&mut read)?;
-                if let Some(text) = p::check_process(&decompressed)? {
-                    let json: HashMap<String, Value> = serde_json::from_str(&text)?;
-                    println!("Json File: {:?}", json);
+                if let Some(json) = p::check_process(&decompressed)? {
+                    println!("{:?}", json);
+                    let kkobj = p::get_kkobject(json)?;
+                    println!("{:?}", kkobj);
                 }
             }
         }
