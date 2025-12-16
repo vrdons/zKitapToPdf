@@ -68,6 +68,9 @@ fn read_u30(code: &[u8], pc: &mut usize) -> usize {
     let mut shift = 0;
 
     loop {
+        if *pc >= code.len() {
+            break;
+        }
         let b = code[*pc];
         *pc += 1;
 
