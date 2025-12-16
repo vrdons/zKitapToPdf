@@ -78,7 +78,8 @@ impl KKDecryptor {
         let decrypted = cipher
             .decrypt_padded_mut::<Pkcs7>(&mut encrypted)
             .map_err(|e| anyhow::anyhow!("Decryption failed: {:?}", e))?;
-        Ok(String::from_utf8_lossy(decrypted).into_owned())
+        String::from_utf8(decrypted.to_vec())
+            .map_err(|e| anyhow::anyhow!("Decrypted data is not valid UTF-8: {}", e))
     }
 
     fn fd2_transform(&self, input: &str, key: &str) -> Result<String> {
