@@ -102,8 +102,9 @@ impl KKDecryptor {
 
         let cipher = BlowfishEcb::new_from_slice(key.as_bytes())?;
 
-        let decrypted = cipher.decrypt_padded_mut::<Pkcs7>(&mut encrypted).unwrap();
-
+        let decrypted = cipher
+            .decrypt_padded_mut::<Pkcs7>(&mut encrypted)
+            .map_err(|e| anyhow::anyhow!("Decryption failed: {:?}", e))?;
         Ok(String::from_utf8_lossy(decrypted).into_owned())
     }
 
