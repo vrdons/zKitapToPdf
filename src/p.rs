@@ -4,11 +4,10 @@ use block_padding::Pkcs7;
 use blowfish::Blowfish;
 use blowfish::cipher::{BlockDecryptMut, KeyInit};
 use ecb::Decryptor;
-use swf::avm2::types::AbcFile;
+use swf::avm2::types::Op;
+use swf::extensions::ReadSwfExt;
 use swf::{SwfBuf, avm2::read::Reader, parse_swf};
 
-const PUSHSTRING_OPCODE: u8 = 44;
-const STRING_PREFIX: &str = "==";
 const DECRYPT_KEY: &str = "pub1isher1l0O";
 
 pub fn check_process(buf: &SwfBuf) -> Result<Option<String>> {
@@ -21,69 +20,29 @@ pub fn check_process(buf: &SwfBuf) -> Result<Option<String>> {
         let abc = reader.read()?;
 
         for body in &abc.method_bodies {
-            if let Some(result) = scan_method_body(&abc, &body.code)? {
-                return Ok(Some(result));
+            let mut r = Reader::new(&body.code);
+
+            while !r.as_slice().is_empty() {
+                let op = r.read_op()?;
+
+                if let Op::PushString { value } = op {
+                    let raw = &abc.constant_pool.strings[value.0 as usize];
+
+                    if raw.len() > 50 {
+                        if let Ok(s) = std::str::from_utf8(raw) {
+                            let decrypted = KKDecryptor
+                                .decrypt(s, DECRYPT_KEY)
+                                .map_err(|e| anyhow!(e))?;
+
+                            return Ok(Some(decrypted));
+                        }
+                    }
+                }
             }
         }
     }
 
     Ok(None)
-}
-
-fn scan_method_body(abc: &AbcFile, code: &[u8]) -> Result<Option<String>> {
-    let mut pc = 0usize;
-    let decryptor = KKDecryptor;
-
-    while pc < code.len() {
-        let opcode = code[pc];
-        pc += 1;
-
-        if opcode != PUSHSTRING_OPCODE {
-            continue;
-        }
-
-        let idx = read_u30(code, &mut pc);
-
-        let Some(raw) = abc.constant_pool.strings.get(idx) else {
-            continue;
-        };
-
-        let Ok(text) = std::str::from_utf8(raw) else {
-            continue;
-        };
-
-        if text.starts_with(STRING_PREFIX) {
-            return decryptor
-                .decrypt(text, DECRYPT_KEY)
-                .map(Some)
-                .map_err(|e| anyhow!(e));
-        }
-    }
-
-    Ok(None)
-}
-
-fn read_u30(code: &[u8], pc: &mut usize) -> usize {
-    let mut result = 0usize;
-    let mut shift = 0;
-
-    loop {
-        if *pc >= code.len() {
-            break;
-        }
-        let b = code[*pc];
-        *pc += 1;
-
-        result |= ((b & 0x7F) as usize) << shift;
-
-        if b & 0x80 == 0 {
-            break;
-        }
-
-        shift += 7;
-    }
-
-    result
 }
 
 // ============================================================

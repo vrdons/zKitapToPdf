@@ -5,7 +5,7 @@ use crate::{cli::Args, executable::setup_environment, export::HandleArgs};
 use clap::Parser;
 
 pub mod cli;
-pub mod crypto;
+pub mod p;
 pub mod executable;
 pub mod export;
 pub mod exporter;

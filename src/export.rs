@@ -15,7 +15,7 @@ use tempfile::{NamedTempFile, TempDir};
 use crate::cli::Files;
 use crate::exporter::Exporter;
 use crate::utils::find_real_size;
-use crate::{crypto, executable, utils};
+use crate::{p, executable, utils};
 
 #[derive(Debug, Clone)]
 pub struct HandleArgs {
@@ -117,7 +117,7 @@ pub fn handle_exe(exporter: &Exporter, args: HandleArgs) -> Result<()> {
                 println!("Found Process file: {:?}", file_path.path());
                 let mut read = File::open(file_path.path())?;
                 let decompressed = swf::decompress_swf(&mut read)?;
-                if let Some(text) = crypto::check_process(&decompressed)? {
+                if let Some(text) = p::check_process(&decompressed)? {
                     let json: HashMap<String, Value> = serde_json::from_str(&text)?;
                     println!("Json File: {:?}", json);
                 }
