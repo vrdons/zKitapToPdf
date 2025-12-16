@@ -89,7 +89,8 @@ impl KKDecryptor {
         let decoded = BASE64.decode(cleaned)?;
 
         let xored = self.apply_xor(&decoded, key);
-        Ok(String::from_utf8_lossy(&xored).into_owned())
+        String::from_utf8(xored)
+            .map_err(|e| anyhow::anyhow!("XOR transform produced invalid UTF-8: {}", e))
     }
 
     fn apply_xor(&self, data: &[u8], key: &str) -> Vec<u8> {
